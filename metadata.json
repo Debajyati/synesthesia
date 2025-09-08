@@ -1,0 +1,7 @@
+{
+  "name": "Synesthesia AI",
+  "description": "An AI-powered web application that generates and edits contextual images from instrumental music, short songs, or spoken prompts, leveraging Gemini for audio understanding and Nano Banana for image manipulation.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
