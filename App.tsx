@@ -1,48 +1,85 @@
-import React, { useState } from 'react';
-import Header from './components/Header';
-import CreatorStudio from './components/CreatorStudio';
-import VisualStoryboard from './components/VisualStoryboard';
-import CreativeStudioIcon from './components/icons/CreativeStudioIcon';
-import FilmIcon from './components/icons/FilmIcon';
+import React, { useState } from "react";
+import Header from "./components/Header";
+import CreatorStudio from "./components/CreatorStudio";
+import VisualStoryboard from "./components/VisualStoryboard";
+import CreativeStudioIcon from "./components/icons/CreativeStudioIcon";
+import FilmIcon from "./components/icons/FilmIcon";
+import ApiKeyModal from "@/components/ApiKeyModal";
 
-type ActiveTab = 'creator' | 'storyboard';
+type ActiveTab = "creator" | "storyboard";
 
 const App: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<ActiveTab>('creator');
+  const [activeTab, setActiveTab] = useState<ActiveTab>("creator");
+  const [isApiKeyNeeded, setIsApiKeyNeeded] = useState<boolean>(false);
+  const [isAppReady, setIsAppReady] = useState<boolean>(false);
 
+  React.useEffect(() => {
+    // A small delay to avoid a flash of a blank screen while checking local storage
+    const timer = setTimeout(() => {
+      const key = localStorage.getItem("gemini-api-key");
+      if (!key) {
+        setIsApiKeyNeeded(true);
+      } else {
+        setIsAppReady(true);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleKeySubmit = (key: string) => {
+    localStorage.setItem("gemini-api-key", key);
+    setIsApiKeyNeeded(false);
+    setIsAppReady(true);
+  };
+
+  if (!isAppReady) {
+    if (isApiKeyNeeded) {
+      return <ApiKeyModal onKeySubmit={handleKeySubmit} />;
+    }
+    // Render a loading state while checking for the key
     return (
-        <div className="min-h-screen bg-base-100 text-neutral-content p-4 flex flex-col items-center">
-            <Header />
-
-            <div role="tablist" className="tabs tabs-boxed my-6 bg-base-200">
-                <a 
-                    role="tab" 
-                    className={`tab gap-2 ${activeTab === 'creator' ? 'tab-active' : ''}`} 
-                    onClick={() => setActiveTab('creator')}
-                    aria-selected={activeTab === 'creator'}
-                >
-                    <CreativeStudioIcon className="w-5 h-5" /> Creator Studio
-                </a>
-                <a 
-                    role="tab" 
-                    className={`tab gap-2 ${activeTab === 'storyboard' ? 'tab-active' : ''}`} 
-                    onClick={() => setActiveTab('storyboard')}
-                    aria-selected={activeTab === 'storyboard'}
-                >
-                    <FilmIcon className="w-5 h-5" /> Visual Storyboard
-                </a>
-            </div>
-            
-            <main className="w-full flex-grow flex flex-col items-center justify-start">
-                {activeTab === 'creator' && <CreatorStudio />}
-                {activeTab === 'storyboard' && <VisualStoryboard />}
-            </main>
-
-            <footer className="p-4 text-center text-xs text-neutral-content/50">
-                <p>Created with ❤️ by Debajyati Dey for the Nano Banana Hackathon. Powered by Google Gemini.</p>
-            </footer>
-        </div>
+      <div className="min-h-screen bg-base-100 flex items-center justify-center">
+        <span className="loading loading-dots loading-lg text-primary"></span>
+      </div>
     );
+  }
+
+  return (
+    <div className="min-h-screen bg-base-100 text-neutral-content p-4 flex flex-col items-center">
+      <Header />
+
+      <div role="tablist" className="tabs tabs-boxed my-6 bg-base-200">
+        <a
+          role="tab"
+          className={`tab gap-2 ${activeTab === "creator" ? "tab-active" : ""}`}
+          onClick={() => setActiveTab("creator")}
+          aria-selected={activeTab === "creator"}
+        >
+          <CreativeStudioIcon className="w-5 h-5" /> Creator Studio
+        </a>
+        <a
+          role="tab"
+          className={`tab gap-2 ${activeTab === "storyboard" ? "tab-active" : ""}`}
+          onClick={() => setActiveTab("storyboard")}
+          aria-selected={activeTab === "storyboard"}
+        >
+          <FilmIcon className="w-5 h-5" /> Visual Storyboard
+        </a>
+      </div>
+
+      <main className="w-full flex-grow flex flex-col items-center justify-start">
+        {activeTab === "creator" && <CreatorStudio />}
+        {activeTab === "storyboard" && <VisualStoryboard />}
+      </main>
+
+      <footer className="p-4 text-center text-xs text-neutral-content/50">
+        <p>
+          Created with ❤️ by Debajyati Dey for the Nano Banana Hackathon.
+          Powered by Google Gemini.
+        </p>
+      </footer>
+    </div>
+  );
 };
 
 export default App;
