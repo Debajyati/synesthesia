@@ -74,8 +74,7 @@ const App: React.FC = () => {
 
       <footer className="p-4 text-center text-xs text-neutral-content/50">
         <p>
-          Created with ❤️ by Debajyati Dey for the Nano Banana Hackathon.
-          Powered by Google Gemini.
+          Created with ❤️ by Debajyati Dey for the Appwrite Sites Hackathon.
         </p>
       </footer>
     </div>
