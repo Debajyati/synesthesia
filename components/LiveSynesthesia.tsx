@@ -36,8 +36,11 @@ const LiveSynesthesia: React.FC = () => {
     const [currentStatus, setCurrentStatus] = useState('');
     const [countdown, setCountdown] = useState(interval);
     
-    const intervalRef = useRef<NodeJS.Timeout | null>(null);
-    const countdownRef = useRef<NodeJS.Timeout | null>(null);
+    // FIX: Replace NodeJS.Timeout with ReturnType<typeof setInterval> for browser compatibility.
+    // The NodeJS.Timeout type is not available in browser environments, which causes a TypeScript error.
+    // ReturnType<typeof setInterval> correctly infers the return type of setInterval (which is `number` in browsers).
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const isProcessingRef = useRef(false);

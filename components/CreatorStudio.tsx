@@ -5,7 +5,7 @@ import Loader from './Loader';
 import ImageHistory from './ImageHistory';
 import Modal from './Modal';
 import CopyIcon from './icons/CopyIcon';
-import { AppState, ImageData, FilterType } from '../types';
+import { AppState, ImageData, FilterType, AspectRatio } from '../types';
 import { FILTERS } from '../constants';
 import * as geminiService from '../services/geminiService';
 
@@ -13,9 +13,12 @@ const CreatorStudio: React.FC = () => {
     const [appState, setAppState] = useState<AppState>(AppState.IDLE);
     const [error, setError] = useState<string | null>(null);
     const [audioFile, setAudioFile] = useState<File | null>(null);
+    const [contextImage, setContextImage] = useState<File | null>(null);
     const [audioContext, setAudioContext] = useState<string>('');
     const [textPrompt, setTextPrompt] = useState<string>('');
     const [generationFilter, setGenerationFilter] = useState<FilterType>('unspecified');
+    const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
+    const [isHD, setIsHD] = useState<boolean>(false);
     const [imageHistory, setImageHistory] = useState<ImageData[]>([]);
     const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
     const [showWarningModal, setShowWarningModal] = useState(false);
@@ -31,9 +34,12 @@ const CreatorStudio: React.FC = () => {
         setAppState(AppState.IDLE);
         setError(null);
         setAudioFile(null);
+        setContextImage(null);
         setTextPrompt('');
         setAudioContext('');
         setGenerationFilter('unspecified');
+        setAspectRatio('1:1');
+        setIsHD(false);
         setImageHistory([]);
         setActiveImageIndex(null);
     };
@@ -81,6 +87,11 @@ const CreatorStudio: React.FC = () => {
         });
     };
     
+    const handleImageFileSelected = (file: File) => {
+        setError(null);
+        setContextImage(file);
+    };
+
     const handleCopyPrompt = () => {
         if (textPromptRef.current) {
             navigator.clipboard.writeText(textPromptRef.current.value).then(() => {
@@ -118,7 +129,15 @@ const CreatorStudio: React.FC = () => {
 
         try {
             setAppState(AppState.GENERATING);
-            const imageBase64 = await geminiService.generateImage(finalPrompt, generationFilter);
+            let imageBase64: string;
+            
+            if (contextImage) {
+                const contextImageBase64 = await geminiService.fileToBase64(contextImage);
+                imageBase64 = await geminiService.generateImageFromTextAndImage(finalPrompt, contextImageBase64, contextImage.type, generationFilter);
+            } else {
+                imageBase64 = await geminiService.generateImageWithOptions(finalPrompt, generationFilter, aspectRatio, isHD);
+            }
+
             const newImage: ImageData = { 
                 id: Date.now(), 
                 base64: imageBase64, 
@@ -203,9 +222,11 @@ const CreatorStudio: React.FC = () => {
                         <AudioInput 
                             onAudioFileSelected={handleAudioFileSelected} 
                             onRecordingComplete={handleRecordingComplete} 
+                            onImageFileSelected={handleImageFileSelected}
                             onError={setError}
                             disabled={isProcessing}
                             micDisabled={!!audioFile}
+                            imageFile={contextImage}
                         />
                         {audioFile && (
                             <textarea
@@ -238,26 +259,59 @@ const CreatorStudio: React.FC = () => {
                             )}
                         </div>
                         
-                        <div className="form-control w-full">
-                            <label className="label">
-                                <span className="label-text">Apply a style filter (optional):</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="form-control w-full">
+                                <label className="label">
+                                    <span className="label-text">Style Filter:</span>
+                                </label>
+                                <select
+                                    className="select select-bordered w-full"
+                                    value={generationFilter}
+                                    onChange={(e) => setGenerationFilter(e.target.value as FilterType)}
+                                    disabled={isProcessing}
+                                >
+                                    {FILTERS.map(filter => (
+                                        <option key={filter} value={filter}>{filter.charAt(0).toUpperCase() + filter.slice(1)}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="form-control w-full">
+                                <label className="label">
+                                    <span className="label-text">Aspect Ratio:</span>
+                                </label>
+                                <select
+                                    className="select select-bordered w-full"
+                                    value={aspectRatio}
+                                    onChange={(e) => setAspectRatio(e.target.value as AspectRatio)}
+                                    disabled={isProcessing}
+                                >
+                                    <option value="1:1">Square (1:1)</option>
+                                    <option value="16:9">Landscape (16:9)</option>
+                                    <option value="9:16">Portrait (9:16)</option>
+                                    <option value="4:3">Standard (4:3)</option>
+                                    <option value="3:4">Tall (3:4)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="form-control">
+                            <label className="label cursor-pointer">
+                                <span className="label-text font-semibold">HD Quality</span> 
+                                <input 
+                                    type="checkbox" 
+                                    className="toggle toggle-secondary" 
+                                    checked={isHD} 
+                                    onChange={(e) => setIsHD(e.target.checked)}
+                                    disabled={isProcessing}
+                                />
                             </label>
-                            <select
-                                className="select select-bordered w-full"
-                                value={generationFilter}
-                                onChange={(e) => setGenerationFilter(e.target.value as FilterType)}
-                                disabled={isProcessing}
-                            >
-                                {FILTERS.filter(f => f !== 'raphaelite-digital-art').map(filter => (
-                                    <option key={filter} value={filter}>{filter.charAt(0).toUpperCase() + filter.slice(1)}</option>
-                                ))}
-                            </select>
+                            <p className="text-xs text-neutral-content/60 -mt-2">HD may have longer generation times.</p>
                         </div>
 
                         <button 
                             className="btn btn-primary w-full" 
                             onClick={handleGeneration} 
-                            disabled={isProcessing || (!audioFile && !textPrompt.trim())}
+                            disabled={isProcessing || (!audioFile && !textPrompt.trim() && !contextImage)}
                         >
                             Generate Image
                         </button>

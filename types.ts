@@ -16,4 +16,4 @@ export interface ImageData {
 
 export type FilterType = typeof FILTERS[number];
 
-// export type AspectRatio = "16:9" | "1:1" | "4:3" | "3:4" | "9:16";
+export type AspectRatio = "16:9" | "1:1" | "4:3" | "3:4" | "9:16";

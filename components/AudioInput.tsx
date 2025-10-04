@@ -8,14 +8,17 @@ import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB } from '../constants';
 interface AudioInputProps {
     onAudioFileSelected: (file: File) => void;
     onRecordingComplete: (file: File) => void;
+    onImageFileSelected: (file: File) => void;
     onError: (message: string) => void;
     disabled: boolean;
     micDisabled: boolean;
+    imageFile: File | null;
 }
 
-const AudioInput: React.FC<AudioInputProps> = ({ onAudioFileSelected, onRecordingComplete, onError, disabled, micDisabled }) => {
+const AudioInput: React.FC<AudioInputProps> = ({ onAudioFileSelected, onRecordingComplete, onImageFileSelected, onError, disabled, micDisabled, imageFile }) => {
     const [fileName, setFileName] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
 
     const handleRecordingDone = (file: File) => {
         if (file.size > MAX_FILE_SIZE) {
@@ -43,8 +46,24 @@ const AudioInput: React.FC<AudioInputProps> = ({ onAudioFileSelected, onRecordin
         }
     };
     
+    const handleImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+             if (file.size > MAX_FILE_SIZE) {
+                onError(`Image file is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Max size is ${MAX_FILE_SIZE_MB}MB.`);
+                event.target.value = ''; // Reset file input
+                return;
+            }
+            onImageFileSelected(file);
+        }
+    };
+
     const handleUploadClick = () => {
         fileInputRef.current?.click();
+    };
+
+    const handleImageUploadClick = () => {
+        imageInputRef.current?.click();
     };
 
     return (
@@ -74,15 +93,34 @@ const AudioInput: React.FC<AudioInputProps> = ({ onAudioFileSelected, onRecordin
                 >
                     {isRecording ? <StopIcon /> : <MicrophoneIcon />}
                 </button>
+                 <input
+                    type="file"
+                    ref={imageInputRef}
+                    onChange={handleImageFileChange}
+                    accept="image/*"
+                    className="hidden"
+                    disabled={disabled}
+                />
+                <button 
+                    onClick={handleImageUploadClick} 
+                    className="btn btn-outline btn-accent btn-square"
+                    disabled={disabled}
+                    aria-label="Upload image for context"
+                    title="Upload image for context"
+                >
+                    <UploadIcon />
+                </button>
             </div>
              {isRecording && (
                 <div className="text-center text-secondary animate-pulse">
                     Recording... Click stop when done.
                 </div>
             )}
-            {fileName && !isRecording && (
+            {(fileName || imageFile) && !isRecording && (
                  <div className="text-center text-xs truncate text-neutral-content/60">
-                    Source: {fileName}
+                    {fileName && <span>Audio: {fileName}</span>}
+                    {fileName && imageFile && <span className="mx-2">|</span>}
+                    {imageFile && <span>Image: {imageFile.name}</span>}
                 </div>
             )}
         </div>

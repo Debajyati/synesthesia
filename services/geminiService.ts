@@ -2,8 +2,10 @@ import {
     GoogleGenAI,
     Modality,
     GenerateContentResponse,
+    GenerateImagesConfig,
+    PersonGeneration
 } from "@google/genai";
-import { FilterType } from "../types";
+import { FilterType, AspectRatio } from "../types";
 
 const API_KEY = process.env.API_KEY;
 if (!API_KEY) {
@@ -207,7 +209,7 @@ const formatPromptWithFilter = (prompt: string, filter: FilterType): string => {
         'color pop': 'mostly black and white with a single subject in vibrant color, selective color',
         'water color': 'soft watercolor painting style, blended colors, wet-on-wet technique',
         'raphaelite oil painting': 'Pre-Raphaelite Brotherhood oil painting style, rich colors, high detail, romantic themes',
-        'raphaelite-digital-art': 'A beautiful blend of Pre-Raphaelite Brotherhood oil painting and vibrant Japanese Anime, creating a unique "Raphaelite Digital Art" look with rich colors, high detail, clean line art, and romantic themes.',
+        'raphaelite-digital-art': 'A beautiful blend of Pre-Raphaelite brotherhood oil painting aesthetics and vibrant Japanese anime elements, creating a unique "Raphaelite Digital Art" form. Emphasizes rich colors, iconic smooth and aesthetic raphaelite oil painting textures for skin and overall textures, high detail, clean line art, and romantic themes.',
         'dark fantasy': 'dark fantasy digital art, epic scale, moody lighting, style of ArtStation and DeviantArt',
         'game art': 'AAA game art style, Unreal Engine rendering, detailed character model, dynamic pose',
         'comic cover': 'dynamic comic book cover art, bold inks, graphic style, vibrant colors',
@@ -222,7 +224,7 @@ export const generateImage = async (prompt: string, filter: FilterType): Promise
         const textPart = { text: finalPrompt };
 
         const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image-preview',
+            model: 'gemini-2.5-flash-image',
             contents: { parts: [textPart] },
             config: {
                 responseModalities: [Modality.IMAGE, Modality.TEXT],
@@ -246,6 +248,45 @@ export const generateImage = async (prompt: string, filter: FilterType): Promise
         throw new Error(createErrorMessage(response, "The model generated a response, but it did not contain image data."));
     } catch (error: any) {
         console.error("Error generating image:", error);
+        throw new Error(error.message || "Failed to generate image due to an unknown error.");
+    }
+};
+
+export const generateImageWithOptions = async (prompt: string, filter: FilterType, aspectRatio: AspectRatio, isHD: boolean): Promise<string> => {
+    try {
+        const finalPrompt = formatPromptWithFilter(prompt, filter);
+        
+        const modelName = isHD ? 'imagen-4.0-generate-001': 'imagen-3.0-generate-002';
+
+        const generationConfig: GenerateImagesConfig = {
+              numberOfImages: 1,
+              outputMimeType: 'image/jpeg',
+              aspectRatio: aspectRatio,
+              personGeneration: PersonGeneration.ALLOW_ALL
+        };
+        if (isHD) {
+            generationConfig["imageSize"] = "2K";
+        }
+
+        const response = await ai.models.generateImages({
+            model: modelName,
+            prompt: finalPrompt,
+            config: generationConfig,
+        });
+
+        if (!response.generatedImages || response.generatedImages.length === 0) {
+             throw new Error("No image was generated. The prompt may have been rejected.");
+        }
+        
+        const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
+        if (!base64ImageBytes) {
+            throw new Error("The model generated a response, but it did not contain image data.");
+        }
+
+        return base64ImageBytes;
+
+    } catch (error: any) {
+        console.error("Error generating image with options:", error);
         throw new Error(error.message || "Failed to generate image due to an unknown error.");
     }
 };
@@ -279,7 +320,7 @@ export const editImage = async (
         }
 
         const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image-preview',
+            model: 'gemini-2.5-flash-image',
             contents: { parts },
             config: {
                 responseModalities: [Modality.IMAGE, Modality.TEXT],
@@ -304,6 +345,51 @@ export const editImage = async (
     } catch (error: any) {
         console.error("Error editing image:", error);
         throw new Error(error.message || "Failed to edit image. Please try a different edit prompt.");
+    }
+};
+
+export const generateImageFromTextAndImage = async (
+    prompt: string,
+    imageBase64: string,
+    imageMimeType: string,
+    filter: FilterType
+): Promise<string> => {
+    try {
+        const finalPrompt = formatPromptWithFilter(prompt, filter);
+        const imagePart = {
+            inlineData: {
+                data: imageBase64,
+                mimeType: imageMimeType,
+            },
+        };
+        const textPart = { text: finalPrompt };
+
+        const response: GenerateContentResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: { parts: [imagePart, textPart] },
+            config: {
+                responseModalities: [Modality.IMAGE, Modality.TEXT],
+            },
+        });
+
+        if (!response.candidates || response.candidates.length === 0) {
+            throw new Error(createErrorMessage(response, "No image was generated. The prompt may have been rejected."));
+        }
+
+        const candidate = response.candidates[0];
+
+        if (candidate.content && candidate.content.parts) {
+            for (const part of candidate.content.parts) {
+                if (part.inlineData && part.inlineData.data) {
+                    return part.inlineData.data;
+                }
+            }
+        }
+
+        throw new Error(createErrorMessage(response, "The model generated a response, but it did not contain image data."));
+    } catch (error: any) {
+        console.error("Error generating image from text and image:", error);
+        throw new Error(error.message || "Failed to generate image due to an unknown error.");
     }
 };
 
